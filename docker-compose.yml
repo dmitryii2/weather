@@ -1,0 +1,53 @@
+version: '3.7'
+
+services:
+    nginx:
+        image: nginx:latest
+        ports:
+          - 80:80
+        depends_on:
+          - php
+        volumes:
+          #logs
+          - ./docker/logs/nginx-access.log:/var/log/nginx/access.log
+          - ./docker/logs/nginx-error.log:/var/log/nginx/error.log
+          #conf
+          - ./docker/nginx/server.conf:/etc/nginx/conf.d/server.conf
+          - '.:/var/www/html'
+
+    php:
+        build: ./docker/php
+        expose:
+          - 9000
+        volumes:
+          - .:/var/www/html
+
+    queue:
+        build: ./docker/php
+        restart: always
+        volumes:
+          - '.:/var/www/html'
+        working_dir: "/var/www/html"
+        command: >
+          bash -c "php artisan queue:work --tries=3"
+
+    db:
+        image: postgres
+        restart: always
+        environment:
+          POSTGRES_DB: laravel
+          POSTGRES_PASSWORD: cLgAyaQ2f438PAPt
+        ports:
+          - 5432:5432
+        volumes:
+          - ./docker/db:/var/lib/postgresql/data
+
+
+
+    composer:
+        image: composer:1.8
+        volumes:
+          - '.:/var/www/html'
+        working_dir: /var/www/html
+        command: >
+          bash -c "composer install --ignore-platform-reqs"

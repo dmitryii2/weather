@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en" style="width: 100%; height: 100%;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css' rel='stylesheet'/>
+    <title>Document</title>
+</head>
+<body style="width: 100%; height: 100%;">
+
+<div id="map" style='width: 100%; height: 100%; position: absolute; top: 0; bottom: 0;'></div>
+
+<script>
+
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZG1pdHJpajIiLCJhIjoiY2syYWh4ZHR4M3FvNTNobXYwOGpucmZpNCJ9.6iQcK1Wzr3ypbiGD7daKzw';
+    var map = new mapboxgl.Map({
+        container: 'map',
+        center: [-122.420679, 37.772537],
+        zoom: 13,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        hash: true,
+        transformRequest: (url, resourceType) => {
+            if (resourceType === 'Source' && url.startsWith('http://myHost')) {
+                return {
+                    url: url.replace('http', 'https'),
+                    headers: {'my-custom-header': true},
+                    credentials: 'include'  // Include cookies for cross-origin requests
+                }
+            }
+        }
+    });
+    map.on('load', () => {
+
+        let once = false;
+
+        const exBbox = [54.4987747093304, 55.8042955300608, 54.7892999369391, 55.9387807177045];
+        const exBbox2 = [54.6236665086095, 55.8973862175052, 54.8312904407286, 56.0738626669029];
+
+        let areaData = {
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Polygon',
+                'coordinates': [[
+                    [exBbox[1], exBbox[0]], [exBbox[3], exBbox[0]],
+                    [exBbox[3], exBbox[2]], [exBbox[1], exBbox[2]],
+                    [exBbox[1], exBbox[0]],
+                ]]
+            }
+        };
+
+        map.addSource('area', {
+            type: 'geojson',
+            data: areaData,
+        });
+
+        map.addLayer({
+            'id': 'areaLayer',
+            'type': 'fill',
+            'source': 'area',
+            'layout': {},
+            'paint': {
+                'fill-color': '#884530',
+                'fill-opacity': 0.2
+            }
+        });
+
+        let pointData = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [],
+                },
+                "properties": {
+                    "title": "Погода в городе: 1",
+                    "icon": "beach"
+                }
+            }]
+        };
+
+        map.addSource('point', {
+            type: 'geojson',
+            data: pointData,
+        })
+
+        map.addLayer({
+            "id": "pointLayer",
+            "type": "symbol",
+            "source": 'point',
+            "layout": {
+                "icon-image": "{icon}-15",
+                "text-field": "{title}",
+                "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+                "text-offset": [0, 0.6],
+                "text-anchor": "top"
+            }
+        });
+
+        map.getSource('area').setData(areaData);
+
+        map.on('moveend', (mData) => {
+
+            // const { lat, lng } = mData.lngLat;
+            // console.log(lat, lng);
+            const { lat, lng } = map.getCenter();
+
+            fetch(`https://geocode-maps.yandex.ru/1.x?geocode=${lng},${lat}&apikey=6444b16e-68c9-4951-a2ac-20b498afe6bf&format=json`)
+                .then(res => res.json())
+                .then(({ response }) => {
+                    console.log(response);
+                    const city = response.GeoObjectCollection.featureMember.find(x => x.GeoObject.metaDataProperty.GeocoderMetaData.kind === 'locality');
+                    console.log(city);
+                    if (city === undefined) return;
+
+                    const bboxData = city.GeoObject.boundedBy.Envelope;
+                    const lbbox = bboxData.lowerCorner.split(' ');
+                    const ubbox = bboxData.upperCorner.split(' ');
+                    let bbox = [parseFloat(lbbox[1]), parseFloat(lbbox[0]), parseFloat(ubbox[1]), parseFloat(ubbox[0])];
+                    // console.log(bbox);
+                    // map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]])
+
+                    areaData.geometry.coordinates = [[
+                        [bbox[1], bbox[0]], [bbox[3], bbox[0]],
+                        [bbox[3], bbox[2]], [bbox[1], bbox[2]],
+                        [bbox[1], bbox[0]],
+                    ]];
+
+                    map.getSource('area').setData(areaData);
+
+                    pointData.features[0].properties.title = city.GeoObject.name;
+                    pointData.features[0].geometry.coordinates = [bbox[1] + (bbox[3] - bbox[1]) / 2, bbox[0] + (bbox[2] - bbox[0]) / 2];
+
+                    map.getSource('point').setData(pointData);
+
+                });
+
+
+
+            return;
+
+            // const {lat, lng} = map.getCenter();
+
+
+
+            /**
+             *
+             *
+             */
+
+            // if (once) {
+            //     fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lat},${lng}.json?access_token=pk.eyJ1IjoiZG1pdHJpajIiLCJhIjoiY2syYWh4ZHR4M3FvNTNobXYwOGpucmZpNCJ9.6iQcK1Wzr3ypbiGD7daKzw`)
+            //         .then(res => res.json())
+            //         .then(res => {
+            //             const {bbox} = res.features[0];
+            //             map.getSource('maine').getData();
+            //         });
+            //     return;
+            // }
+            // once = true;
+
+            // fetch('https://samples.openweathermap.org/data/2.5/weather?lat=35&lon=139&appid=b6907d289e10d714a6e88b30761fae22')
+            //     .then(res => res.json())
+            //     .then(res => {
+            //         console.log(res);
+            //     });
+
+            // fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lat},${lng}.json?access_token=pk.eyJ1IjoiZG1pdHJpajIiLCJhIjoiY2syYWh4ZHR4M3FvNTNobXYwOGpucmZpNCJ9.6iQcK1Wzr3ypbiGD7daKzw`)
+            //     .then(res => res.json())
+            //     .then(res => {
+            //         console.log(res);
+            //
+            //
+            //
+            //     })
+            // console.log(map.getCenter());
+            // console.log(map.getZoom());
+        });
+
+
+    });
+
+    // setInterval(() => {
+    //     var center = map.getCenter();
+    //     console.log(center)
+    // }, 3500)
+</script>
+</body>
+</html>

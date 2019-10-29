@@ -1,0 +1,2 @@
+2019/10/29 06:55:42 [error] 7#7: *1 open() "/usr/share/nginx/html/favicon.ico" failed (2: No such file or directory), client: 172.20.0.1, server: localhost, request: "GET /favicon.ico HTTP/1.1", host: "127.0.0.1", referrer: "http://127.0.0.1/"
+2019/10/29 10:53:12 [warn] 6#6: *1 an upstream response is buffered to a temporary file /var/cache/nginx/fastcgi_temp/1/00/0000000001 while reading upstream, client: 172.21.0.1, server: server.ru, request: "GET / HTTP/1.1", upstream: "fastcgi://172.21.0.4:9000", host: "server.ru"
